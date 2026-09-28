@@ -9,7 +9,7 @@ from search_bot.models import SearchResult
 API_URL = "https://en.wikipedia.org/w/api.php"
 
 HEADERS = {
-    "User-Agent": "ConcurrentSearchBot/0.1 (educational project)",
+    "User-Agent": "ConcurrentSearchBot/0.1 (educational project) (russkiywolk@yandex.ru)",
 }
 
 

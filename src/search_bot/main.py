@@ -36,7 +36,7 @@ async def handle_start(message: Message) -> None:
 
 
 @router.message()
-async def handle_message(message: Message) -> None:
+async def handle_message(message: Message, session: aiohttp.ClientSession) -> None:
     if message.text is None:
         await message.answer("Пока только текстовые сообщения")
         return
@@ -47,16 +47,40 @@ async def handle_message(message: Message) -> None:
         await message.answer("Нужен непустой поисковой запрос.")
         return
 
-    timeout = aiohttp.ClientTimeout(total=20)
-
     try:
-        async with aiohttp.ClientSession(
-            headers=HEADERS,
-            timeout=timeout,
-        ) as session:
-            results = await search_wikipedia(session, query)
-    except (aiohttp.ClientError, TimeoutError):
-        await message.answer("Не удалось получить ответ Wikipedia. Попробуй позже.")
+        results = await search_wikipedia(session, query)
+    except aiohttp.ClientResponseError as exc:
+        print(f"Wikipedia HTTP error: status={exc.status}", flush=True)
+
+        if exc.status == 429:
+            retry_after = (
+                exc.headers.get("Retry-After") if exc.headers is not None else None
+            )
+
+            if retry_after is not None and retry_after.isdigit():
+                text = (
+                    "Wikipedia временно ограничила запросы. "
+                    f"Попробуй не раньше чем через {retry_after} секунд."
+                )
+            else:
+                text = "Wikipedia временно ограничила запросы. " "Попробуй позже."
+        else:
+            text = "Wikipedia вернула ошибку. Попробуй позже."
+
+        await message.answer(text)
+        return
+
+    except TimeoutError:
+        print("Wikipedia request timed out", flush=True)
+        await message.answer("Wikipedia не ответила вовремя. Попробуй позже.")
+        return
+
+    except aiohttp.ClientError as exc:
+        print(
+            f"Wikipedia network error: {type(exc).__name__}",
+            flush=True,
+        )
+        await message.answer("Не удалось соединиться с Wikipedia. Попробуй позже.")
         return
 
     if not results:
@@ -76,7 +100,10 @@ async def main() -> None:
     dispatcher = Dispatcher()
     dispatcher.include_router(router)
 
-    await dispatcher.start_polling(bot)
+    timeout = aiohttp.ClientTimeout(total=20)
+
+    async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
+        await dispatcher.start_polling(bot, session=session)
 
 
 if __name__ == "__main__":
