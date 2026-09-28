@@ -8,24 +8,25 @@ from aiogram.types import Message
 
 
 from search_bot.models import SearchResult
-from search_bot.wikipedia import HEADERS, search_wikipedia
+from search_bot.github import search_github
+from search_bot.wikipedia import search_wikipedia
 
 
 router = Router()
 
 
-def format_wikipedia_results(results: list[SearchResult]) -> str:
-    lines = ["В Wikipedia нашел вот это:"]
+def format_results(results: list[SearchResult], heading: str) -> str:
+    lines = [f"Поиск по {heading} вернул:"]
 
     for result in results:
-        lines.extend(
-            [
-                "",
-                result.title,
-                result.description,
-                result.url,
-            ]
-        )
+        lines.append("")
+        lines.append(result.title)
+        lines.append(result.description)
+
+        if result.details:
+            lines.append(result.details)
+
+        lines.append(result.url)
 
     return "\n".join(lines)
 
@@ -47,47 +48,30 @@ async def handle_message(message: Message, session: aiohttp.ClientSession) -> No
         await message.answer("Нужен непустой поисковой запрос.")
         return
 
-    try:
-        results = await search_wikipedia(session, query)
-    except aiohttp.ClientResponseError as exc:
-        print(f"Wikipedia HTTP error: status={exc.status}", flush=True)
+    for heading, search in (
+        ("Wikipedia", search_wikipedia),
+        ("GitHub", search_github),
+    ):
+        try:
+            results = await search(session, query)
+        except aiohttp.ClientResponseError as exc:
+            print(f"{heading} HTTP error: status={exc.status}", flush=True)
+            await message.answer(f"{heading}: ошибка HTTP {exc.status}.")
+            continue
+        except TimeoutError:
+            print(f"{heading} request timed out", flush=True)
+            await message.answer(f"{heading}: не ответил вовремя.")
+            continue
+        except aiohttp.ClientError as exc:
+            print(f"{heading} network error: {type(exc).__name__}", flush=True)
+            await message.answer(f"{heading}: не удалось соединиться.")
+            continue
 
-        if exc.status == 429:
-            retry_after = (
-                exc.headers.get("Retry-After") if exc.headers is not None else None
-            )
+        if not results:
+            await message.answer(f"{heading}: ничего не найдено.")
+            continue
 
-            if retry_after is not None and retry_after.isdigit():
-                text = (
-                    "Wikipedia временно ограничила запросы. "
-                    f"Попробуй не раньше чем через {retry_after} секунд."
-                )
-            else:
-                text = "Wikipedia временно ограничила запросы. " "Попробуй позже."
-        else:
-            text = "Wikipedia вернула ошибку. Попробуй позже."
-
-        await message.answer(text)
-        return
-
-    except TimeoutError:
-        print("Wikipedia request timed out", flush=True)
-        await message.answer("Wikipedia не ответила вовремя. Попробуй позже.")
-        return
-
-    except aiohttp.ClientError as exc:
-        print(
-            f"Wikipedia network error: {type(exc).__name__}",
-            flush=True,
-        )
-        await message.answer("Не удалось соединиться с Wikipedia. Попробуй позже.")
-        return
-
-    if not results:
-        await message.answer("Wikipedia не нашла результатов по этому запросу.")
-        return
-
-    await message.answer(format_wikipedia_results(results))
+        await message.answer(format_results(results, heading))
 
 
 async def main() -> None:
@@ -102,7 +86,10 @@ async def main() -> None:
 
     timeout = aiohttp.ClientTimeout(total=20)
 
-    async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
+    async with aiohttp.ClientSession(
+        headers={"User-Agent": "ConcurrentSearchBot/0.1 (educational project)"},
+        timeout=timeout,
+    ) as session:
         await dispatcher.start_polling(bot, session=session)
 
 

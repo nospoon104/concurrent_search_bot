@@ -29,7 +29,14 @@ async def search_github(
 ) -> list[SearchResult]:
     params = {"q": query, "per_page": 2}
 
-    async with session.get(API_URL, params=params) as response:
+    async with session.get(
+        API_URL,
+        params=params,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "ConcurrentSearchBot/0.1 (educational project)",
+        },
+    ) as response:
         response.raise_for_status()
         data = await response.json()
 
