@@ -7,3 +7,4 @@ class SearchResult:
     description: str
     url: str
     source: str
+    details: str = ""
