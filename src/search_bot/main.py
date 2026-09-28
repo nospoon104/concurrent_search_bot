@@ -10,6 +10,7 @@ from aiogram.types import Message
 from search_bot.models import SearchResult
 from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
+from search_bot.stackoverflow import search_stackoverflow
 
 
 router = Router()
@@ -33,7 +34,9 @@ def format_results(results: list[SearchResult], heading: str) -> str:
 
 @router.message(CommandStart())
 async def handle_start(message: Message) -> None:
-    await message.answer("Привет! Отправь текстовый запрос — я пошукаю в Wikipedia")
+    await message.answer(
+        "Привет! Напиши запрос — поищу в Wikipedia, GitHub и Stack Overflow."
+    )
 
 
 @router.message()
@@ -51,6 +54,7 @@ async def handle_message(message: Message, session: aiohttp.ClientSession) -> No
     for heading, search in (
         ("Wikipedia", search_wikipedia),
         ("GitHub", search_github),
+        ("Stack Overflow", search_stackoverflow),
     ):
         try:
             results = await search(session, query)
