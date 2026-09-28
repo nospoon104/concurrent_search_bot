@@ -9,4 +9,4 @@ build/
 dist/
 export BOT_TOKEN='8906661771:AAGmXQ_r5q2yVOciFoLt6AhXxUYpRw5ttgc'
 wiki_probe.py
-src/search_bot/probes/github_probe.py
+github_probe.py
