@@ -7,3 +7,5 @@ PROJECT_STATE.md
 *.egg-info/
 build/
 dist/
+export BOT_TOKEN='8906661771:AAGmXQ_r5q2yVOciFoLt6AhXxUYpRw5ttgc'
+wiki_probe.py
