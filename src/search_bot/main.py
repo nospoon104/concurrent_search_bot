@@ -2,6 +2,7 @@ import asyncio
 import os
 import aiohttp
 from time import perf_counter
+from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import CommandStart
@@ -14,6 +15,9 @@ from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
 from search_bot.stackoverflow import search_stackoverflow
 
+
+load_dotenv()
+token = os.getenv("BOT_TOKEN")
 
 router = Router()
 

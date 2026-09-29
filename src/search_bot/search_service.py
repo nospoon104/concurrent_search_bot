@@ -2,6 +2,7 @@ from collections.abc import Awaitable, Callable
 from time import perf_counter
 
 import aiohttp
+import asyncio
 
 from search_bot.models import ProviderOutcome, SearchResult
 
@@ -21,15 +22,12 @@ class SearchService:
         self._providers = providers
 
     async def search(self, query: str) -> list[ProviderOutcome]:
-        outcomes = []
+        coroutines = [
+            self._search_one(source, search_function, query)
+            for source, search_function in self._providers
+        ]
 
-        for source, search_function in self._providers:
-            outcome = await self._search_one(
-                source,
-                search_function,
-                query,
-            )
-            outcomes.append(outcome)
+        outcomes = await asyncio.gather(*coroutines)
 
         return outcomes
 
