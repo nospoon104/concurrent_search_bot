@@ -11,3 +11,4 @@ export BOT_TOKEN='8906661771:AAGmXQ_r5q2yVOciFoLt6AhXxUYpRw5ttgc'
 wiki_probe.py
 github_probe.py
 stackoverflow_probe.py
+service_probe.py

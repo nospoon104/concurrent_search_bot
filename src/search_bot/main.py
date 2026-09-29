@@ -1,6 +1,7 @@
 import asyncio
 import os
 import aiohttp
+from time import perf_counter
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import CommandStart
@@ -8,6 +9,7 @@ from aiogram.types import Message
 
 
 from search_bot.models import SearchResult
+from search_bot.search_service import SearchService
 from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
 from search_bot.stackoverflow import search_stackoverflow
@@ -40,7 +42,11 @@ async def handle_start(message: Message) -> None:
 
 
 @router.message()
-async def handle_message(message: Message, session: aiohttp.ClientSession) -> None:
+async def handle_message(
+    message: Message,
+    search_service: SearchService,
+) -> None:
+
     if message.text is None:
         await message.answer("Пока только текстовые сообщения")
         return
@@ -51,31 +57,18 @@ async def handle_message(message: Message, session: aiohttp.ClientSession) -> No
         await message.answer("Нужен непустой поисковой запрос.")
         return
 
-    for heading, search in (
-        ("Wikipedia", search_wikipedia),
-        ("GitHub", search_github),
-        ("Stack Overflow", search_stackoverflow),
-    ):
-        try:
-            results = await search(session, query)
-        except aiohttp.ClientResponseError as exc:
-            print(f"{heading} HTTP error: status={exc.status}", flush=True)
-            await message.answer(f"{heading}: ошибка HTTP {exc.status}.")
-            continue
-        except TimeoutError:
-            print(f"{heading} request timed out", flush=True)
-            await message.answer(f"{heading}: не ответил вовремя.")
-            continue
-        except aiohttp.ClientError as exc:
-            print(f"{heading} network error: {type(exc).__name__}", flush=True)
-            await message.answer(f"{heading}: не удалось соединиться.")
+    outcomes = await search_service.search(query)
+
+    for outcome in outcomes:
+        if outcome.error is not None:
+            await message.answer(f"{outcome.source}: {outcome.error}")
             continue
 
-        if not results:
-            await message.answer(f"{heading}: ничего не найдено.")
+        if not outcome.results:
+            await message.answer(f"{outcome.source}: ничего не найдено.")
             continue
 
-        await message.answer(format_results(results, heading))
+        await message.answer(format_results(outcome.results, outcome.source))
 
 
 async def main() -> None:
@@ -94,7 +87,16 @@ async def main() -> None:
         headers={"User-Agent": "ConcurrentSearchBot/0.1 (educational project)"},
         timeout=timeout,
     ) as session:
-        await dispatcher.start_polling(bot, session=session)
+        search_service = SearchService(
+            session=session,
+            providers=[
+                ("Wikipedia", search_wikipedia),
+                ("GitHub", search_github),
+                ("Stack Overflow", search_stackoverflow),
+            ],
+        )
+
+        await dispatcher.start_polling(bot, search_service=search_service)
 
 
 if __name__ == "__main__":
