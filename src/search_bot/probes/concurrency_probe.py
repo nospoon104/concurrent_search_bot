@@ -80,9 +80,10 @@ async def fake_github(
 ) -> list[SearchResult]:
     print("GitHub: начал")
     await asyncio.sleep(1.5)
-    print("GitHub: закончился таймаутом")
-
-    raise TimeoutError("Искусственный сбой для проверки")
+    print("GitHub: начал долгую работу")
+    await asyncio.sleep(5)
+    print("GitHub: закончил долгую работу")
+    return []
 
 
 async def fake_stackoverflow(
@@ -105,6 +106,8 @@ async def main() -> None:
                 ("GitHub", fake_github),
                 ("Stack Overflow", fake_stackoverflow),
             ],
+            provider_timeout=3.0,
+            max_concurrent_providers=3,
         )
 
         started = perf_counter()

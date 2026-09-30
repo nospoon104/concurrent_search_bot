@@ -1,7 +1,6 @@
 import asyncio
 import os
 import aiohttp
-from time import perf_counter
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router
@@ -15,9 +14,6 @@ from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
 from search_bot.stackoverflow import search_stackoverflow
 
-
-load_dotenv()
-token = os.getenv("BOT_TOKEN")
 
 router = Router()
 
@@ -76,6 +72,7 @@ async def handle_message(
 
 
 async def main() -> None:
+    load_dotenv()
     token = os.getenv("BOT_TOKEN")
 
     if not token:
@@ -98,6 +95,9 @@ async def main() -> None:
                 ("GitHub", search_github),
                 ("Stack Overflow", search_stackoverflow),
             ],
+            provider_timeout=20.0,
+            max_concurrent_providers=3,
+            search_timeout=30.0,
         )
 
         await dispatcher.start_polling(bot, search_service=search_service)
