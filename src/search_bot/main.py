@@ -34,10 +34,10 @@ def format_search_outcomes(outcomes: list[ProviderOutcome]) -> str:
         else:
             for result in outcome.results:
                 lines.append("")
-                lines.append(escape(result.title))
+                lines.append(escape(result.title[:300]))
 
                 if result.description:
-                    lines.append(escape(result.description))
+                    lines.append(escape(result.description[:400]))
 
                 if result.details:
                     lines.append(escape(result.details))

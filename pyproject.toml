@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = 'concurrent-search-bot'
 version = '0.1.0'
 description = 'Educational pet-prjct'
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.12,<3.15"
 dependencies = ["aiogram==3.31.0", "aiohttp>=3.9,<4", "python-dotenv"]
 
 [tool.setuptools.packages.find]
