@@ -2,6 +2,8 @@ import asyncio
 import os
 import aiohttp
 from dotenv import load_dotenv
+from html import escape
+from aiogram.enums import ParseMode
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import CommandStart
@@ -13,25 +15,38 @@ from search_bot.search_service import SearchService
 from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
 from search_bot.stackoverflow import search_stackoverflow
+from search_bot.models import ProviderOutcome
 
 
 router = Router()
 
 
-def format_results(results: list[SearchResult], heading: str) -> str:
-    lines = [f"Поиск по {heading} вернул:"]
+def format_search_outcomes(outcomes: list[ProviderOutcome]) -> str:
+    sections = []
 
-    for result in results:
-        lines.append("")
-        lines.append(result.title)
-        lines.append(result.description)
+    for outcome in outcomes:
+        lines = [f"<b>{escape(outcome.source)}</b>"]
 
-        if result.details:
-            lines.append(result.details)
+        if outcome.error is not None:
+            lines.append(escape(outcome.error))
+        elif not outcome.results:
+            lines.append("Ничего не найдено.")
+        else:
+            for result in outcome.results:
+                lines.append("")
+                lines.append(escape(result.title))
 
-        lines.append(result.url)
+                if result.description:
+                    lines.append(escape(result.description))
 
-    return "\n".join(lines)
+                if result.details:
+                    lines.append(escape(result.details))
+
+                lines.append(escape(result.url))
+
+        sections.append("\n".join(lines))
+
+    return "\n\n".join(sections)
 
 
 @router.message(CommandStart())
@@ -59,16 +74,10 @@ async def handle_message(
 
     outcomes = await search_service.search(query)
 
-    for outcome in outcomes:
-        if outcome.error is not None:
-            await message.answer(f"{outcome.source}: {outcome.error}")
-            continue
-
-        if not outcome.results:
-            await message.answer(f"{outcome.source}: ничего не найдено.")
-            continue
-
-        await message.answer(format_results(outcome.results, outcome.source))
+    await message.answer(
+        format_search_outcomes(outcomes),
+        parse_mode=ParseMode.HTML,
+    )
 
 
 async def main() -> None:
