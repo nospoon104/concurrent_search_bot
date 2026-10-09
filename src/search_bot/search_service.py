@@ -3,6 +3,7 @@ from time import perf_counter
 
 import aiohttp
 import asyncio
+import logging
 
 from search_bot.models import ProviderOutcome, SearchResult
 
@@ -10,6 +11,8 @@ type SearchFunction = Callable[
     [aiohttp.ClientSession, str],
     Awaitable[list[SearchResult]],
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class SearchService:
@@ -30,42 +33,47 @@ class SearchService:
             raise ValueError("search_timeout должен быть больше нуля")
 
         self._session = session
-        self._providers = providers
+        self._providers = tuple(providers)
         self._provider_timeout = provider_timeout
         self._semaphore = asyncio.Semaphore(max_concurrent_providers)
         self._search_timeout = search_timeout
 
     async def search(self, query: str) -> list[ProviderOutcome]:
+        if not self._providers:
+            return []
+
         tasks = [
             asyncio.create_task(self._search_one(source, search_function, query))
             for source, search_function in self._providers
         ]
 
-        done, pending = await asyncio.wait(
-            tasks,
-            timeout=self._search_timeout,
-        )
+        try:
+            done, pending = await asyncio.wait(
+                tasks,
+                timeout=self._search_timeout,
+            )
 
-        for task in pending:
-            task.cancel()
+            outcomes = []
 
-        if pending:
-            await asyncio.gather(*pending, return_exceptions=True)
-
-        outcomes = []
-
-        for (source, _), task in zip(self._providers, tasks):
-            if task in done:
-                outcomes.append(task.result())
-            else:
-                outcomes.append(
-                    ProviderOutcome(
-                        source=source,
-                        error="Превышено общее время поиска.",
+            for (source, _), task in zip(self._providers, tasks):
+                if task in done:
+                    outcomes.append(task.result())
+                else:
+                    outcomes.append(
+                        ProviderOutcome(
+                            source=source,
+                            error="Превышено общее время поиска.",
+                        )
                     )
-                )
 
-        return outcomes
+            return outcomes
+
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _search_one(
         self,
@@ -86,31 +94,50 @@ class SearchService:
                     )
 
         except aiohttp.ClientResponseError as exc:
+            logger.warning(
+                "%s: API вернул HTTP %s",
+                source,
+                exc.status,
+                exc_info=True,
+            )
+
             outcome = ProviderOutcome(
                 source=source,
-                error=f"Ошибка HTTP {exc.status}.",
+                error=(
+                    "Не удалось получить результаты из этого источника. "
+                    "Попробуй повторить запрос позже."
+                ),
             )
 
         except TimeoutError:
-            outcome = ProviderOutcome(
-                source=source,
-                error="Источник не ответил вовремя.",
+            logger.warning(
+                "%s: превышено время ожидания провайдера",
+                source,
             )
 
-        except aiohttp.ClientError as exc:
-            print(
-                f"{source}: сетевая ошибка {type(exc).__name__}",
-                flush=True,
-            )
             outcome = ProviderOutcome(
                 source=source,
-                error="Не удалось соединиться с источником.",
+                error="Источник не ответил вовремя. Попробуй позже.",
+            )
+
+        except aiohttp.ClientError:
+            logger.warning(
+                "%s: сетевая ошибка при обращении к API",
+                source,
+                exc_info=True,
+            )
+
+            outcome = ProviderOutcome(
+                source=source,
+                error="Не удалось связаться с источником. Попробуй позже.",
             )
 
         elapsed = perf_counter() - started
-        print(
-            f"{source}: обращение заняло {elapsed:.2f} с",
-            flush=True,
+
+        logger.info(
+            "%s: ожидание и выполнение заняли %.2f с",
+            source,
+            elapsed,
         )
 
         return outcome

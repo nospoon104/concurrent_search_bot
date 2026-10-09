@@ -1,6 +1,7 @@
 import asyncio
 import os
 import aiohttp
+import logging
 from dotenv import load_dotenv
 from html import escape
 from aiogram.enums import ParseMode
@@ -81,6 +82,12 @@ async def handle_message(
 
 
 async def main() -> None:
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
 
