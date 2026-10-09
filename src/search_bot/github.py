@@ -1,8 +1,8 @@
 import aiohttp
 
 from search_bot.models import SearchResult
+from search_bot.config import GITHUB_API_URL
 
-API_URL = "https://api.github.com/search/repositories"
 
 HEADERS = {
     "Accept": "application/vnd.github+json",
@@ -30,7 +30,7 @@ async def search_github(
     params = {"q": query, "per_page": 2}
 
     async with session.get(
-        API_URL,
+        GITHUB_API_URL,
         params=params,
         headers={
             "Accept": "application/vnd.github+json",

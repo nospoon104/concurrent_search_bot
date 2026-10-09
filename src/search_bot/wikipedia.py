@@ -4,9 +4,8 @@ from urllib.parse import quote
 import aiohttp
 
 from search_bot.models import SearchResult
+from search_bot.config import WIKIPEDIA_API_URL
 
-
-API_URL = "https://en.wikipedia.org/w/api.php"
 
 HEADERS = {
     "User-Agent": "ConcurrentSearchBot/0.1 (educational project) (russkiywolk@yandex.ru)",
@@ -42,7 +41,7 @@ async def search_wikipedia(
         "format": "json",
     }
 
-    async with session.get(API_URL, params=params) as response:
+    async with session.get(WIKIPEDIA_API_URL, params=params) as response:
 
         response.raise_for_status()
 

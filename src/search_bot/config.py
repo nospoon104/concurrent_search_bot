@@ -3,6 +3,12 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
+
+GITHUB_API_URL = "https://api.github.com/search/repositories"
+
+STACKOVERFLOW_API_URL = "https://api.stackexchange.com/2.3/search/advanced"
+
 
 @dataclass(frozen=True)
 class Settings:

@@ -3,9 +3,7 @@ from html import unescape
 import aiohttp
 
 from search_bot.models import SearchResult
-
-
-API_URL = "https://api.stackexchange.com/2.3/search/advanced"
+from search_bot.config import STACKOVERFLOW_API_URL
 
 
 def convert_stackoverflow_result(item: dict) -> SearchResult:
@@ -34,7 +32,7 @@ async def search_stackoverflow(
         "pagesize": 2,
     }
 
-    async with session.get(API_URL, params=params) as response:
+    async with session.get(STACKOVERFLOW_API_URL, params=params) as response:
         response.raise_for_status()
         data = await response.json()
 
