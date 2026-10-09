@@ -1,8 +1,6 @@
 import asyncio
-import os
 import aiohttp
 import logging
-from dotenv import load_dotenv
 from html import escape
 from aiogram.enums import ParseMode
 
@@ -17,6 +15,7 @@ from search_bot.github import search_github
 from search_bot.wikipedia import search_wikipedia
 from search_bot.stackoverflow import search_stackoverflow
 from search_bot.models import ProviderOutcome
+from search_bot.config import load_settings
 
 
 router = Router()
@@ -88,17 +87,15 @@ async def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    load_dotenv()
-    token = os.getenv("BOT_TOKEN")
+    settings = load_settings()
 
-    if not token:
-        raise RuntimeError("Токен не задан/не робит")
-
-    bot = Bot(token=token)
+    bot = Bot(token=settings.bot_token)
     dispatcher = Dispatcher()
     dispatcher.include_router(router)
 
-    timeout = aiohttp.ClientTimeout(total=20)
+    timeout = aiohttp.ClientTimeout(
+        total=settings.http_timeout,
+    )
 
     async with aiohttp.ClientSession(
         headers={"User-Agent": "ConcurrentSearchBot/0.1 (educational project)"},
@@ -111,12 +108,16 @@ async def main() -> None:
                 ("GitHub", search_github),
                 ("Stack Overflow", search_stackoverflow),
             ],
-            provider_timeout=20.0,
-            max_concurrent_providers=3,
-            search_timeout=30.0,
+            provider_timeout=settings.provider_timeout,
+            max_concurrent_providers=settings.max_concurrent_providers,
+            search_timeout=settings.search_timeout,
         )
 
-        await dispatcher.start_polling(bot, search_service=search_service)
+        await dispatcher.start_polling(
+            bot,
+            search_service=search_service,
+            settings=settings,
+        )
 
 
 if __name__ == "__main__":
