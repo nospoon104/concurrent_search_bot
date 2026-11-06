@@ -42,9 +42,10 @@ async def handle_message(
         return
 
     outcomes = await search_service.search(query)
-    text = format_search_outcomes(outcomes)
+    messages = format_search_outcomes(outcomes)
 
-    await message.answer(
-        text,
-        parse_mode=ParseMode.HTML,
-    )
+    for text in messages:
+        await message.answer(
+            text,
+            parse_mode=ParseMode.HTML,
+        )

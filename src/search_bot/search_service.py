@@ -58,6 +58,8 @@ class SearchService:
         if not self._providers:
             return []
 
+        # Явные задачи нужны для общего дедлайна:
+        # сохраняем готовые результаты и отменяем незавершённые операции.
         tasks = [
             asyncio.create_task(
                 self._search_one(source, search_function, query),
