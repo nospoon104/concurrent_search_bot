@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from time import perf_counter
 
 import aiohttp
@@ -19,7 +19,7 @@ class SearchService:
     def __init__(
         self,
         session: aiohttp.ClientSession,
-        providers: list[tuple[str, SearchFunction]],
+        providers: Iterable[tuple[str, SearchFunction]] | None = None,
         *,
         provider_timeout: float,
         max_concurrent_providers: int,
@@ -33,18 +33,37 @@ class SearchService:
             raise ValueError("search_timeout должен быть больше нуля")
 
         self._session = session
-        self._providers = tuple(providers)
+        self._providers: list[tuple[str, SearchFunction]] = []
         self._provider_timeout = provider_timeout
         self._semaphore = asyncio.Semaphore(max_concurrent_providers)
         self._search_timeout = search_timeout
 
+        if providers is not None:
+            for source, search_function in providers:
+                self.register_provider(source, search_function)
+
+    def register_provider(
+        self,
+        source: str,
+        search_function: SearchFunction,
+    ) -> None:
+        if any(registered_source == source for registered_source, _ in self._providers):
+            raise ValueError(f"Провайдер с именем {source!r} уже зарегистрирован")
+
+        self._providers.append((source, search_function))
+
     async def search(self, query: str) -> list[ProviderOutcome]:
+        providers = tuple(self._providers)
+
         if not self._providers:
             return []
 
         tasks = [
-            asyncio.create_task(self._search_one(source, search_function, query))
-            for source, search_function in self._providers
+            asyncio.create_task(
+                self._search_one(source, search_function, query),
+                name=f"search:{source}",
+            )
+            for source, search_function in providers
         ]
 
         try:
@@ -55,7 +74,7 @@ class SearchService:
 
             outcomes = []
 
-            for (source, _), task in zip(self._providers, tasks):
+            for (source, _), task in zip(providers, tasks):
                 if task in done:
                     outcomes.append(task.result())
                 else:
